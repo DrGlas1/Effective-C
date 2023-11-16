@@ -15,7 +15,38 @@ typedef struct simplex_t{
 	double y;		
 } simplex_t;
 
-void print(simplex_t* s);
+double xsimplex(int m, int n, double** a, double* b, double* c, double* x, double y, int* var, int h);
+
+void print(simplex_t* s) {
+	double** a = s->a;
+	double* b = s->b;
+	double* c = s->c;
+	int* var = s->var;
+	int m = s->m;
+	int n = s->n;
+	int i, j;
+	printf("-----------------------------------------------\n");
+	printf("max z = ");
+	for(i = 0; i < m; i++) {
+		printf("%lfx_%d ", c[i],var[i]);
+		printf("+ ");
+	}
+	printf("%lf\n", s->y);
+
+	for(i = 0; i < m; i++) {
+		printf("x_%d = -(", var[i+n]);
+		for(j = 0; j < n; j++) {
+			printf("%lfx_%d", a[i][j], var[j]);
+			if (j != n - 1) {
+				printf(" + ");
+			}
+		}
+		printf(")\n");
+	}
+	printf("\n");
+}
+
+
 
 int init(simplex_t* s, int m, int n, double** a, double* b, double* c, double* x, double y, int* var) {
 	int i;
@@ -42,43 +73,6 @@ int init(simplex_t* s, int m, int n, double** a, double* b, double* c, double* x
 	return k;
 
 }
-
-bool initial(simplex_t* s, int m, int n, double** a, double* b, double* c, double* x, double y, int* var) {
-	int i, j, k;
-	k = init(s, m, n, a, b, c, x, y, var);
-	if (b[k] > 0) {
-		return true;
-	}
-	// TODO - handle this case
-	return false;
-}
-
-
-
-void prepare(simplex_t* s, int k) {
-	int m = s->m;
-	int n = s->n;
-	int i;
-	for(i = m + n; i > n; i--) {
-		s->var[i] = s->var[i - 1];
-	}
-	s->var[n] = m + n;
-	n++;
-	for(i = 0; i < m; i++) {
-		s->a[i][n - 1] = -1;
-	}
-
-}
-
-int select_nonbasic(simplex_t* s) {
-	for(int i = 0; i < s->n; i++) {
-		if (s->c[i] > EPSILON) {
-			return i;
-		}
-}
-	return -1;
-}
-
 
 void pivot(simplex_t* s, int row, int col) {
 	double** a = s->a;
@@ -124,6 +118,105 @@ void pivot(simplex_t* s, int row, int col) {
 	}
 	b[row] = b[row] / a[row][col];
 	a[row][col] = 1 / a[row][col];
+}
+
+void prepare(simplex_t* s, int k) {
+	int m = s->m;
+	int n = s->n;
+	int i;
+	for(i = m + n; i > n; i--) {
+		s->var[i] = s->var[i - 1];
+	}
+	s->var[n] = m + n;
+	n++;
+	for(i = 0; i < m; i++) {
+		s->a[i][n - 1] = -1;
+	}
+	free(s->x);
+	free(s->c);
+	s->x = malloc(sizeof(double)*(m+n));
+	s->c = malloc(sizeof(double)*n);
+	s->n = n;
+	pivot(s, k, n - 1);
+}
+
+int select_nonbasic(simplex_t* s) {
+	for(int i = 0; i < s->n; i++) {
+		if (s->c[i] > EPSILON) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+bool initial(simplex_t* s, int m, int n, double** a, double* b, double* c, double* x, double y, int* var) {
+	int i, j, k;
+	double w;
+	k = init(s, m, n, a, b, c, x, y, var);
+	if (b[k] > 0) {
+		return true;
+	}
+	prepare(s,k);
+	n = s->n;
+	s->y = xsimplex(m, n, s->a, s->b, s->c, s->x, 0, s->var, 1);
+	for(i = 0; i < m + n; i++) {
+		if(s->var[i] == m+n-1) {
+			if(fabs(s->x[i]) > EPSILON) {
+				free(s->x);
+				free(s->c);
+				return false;
+			} else {
+				break;
+			
+			}
+		}
+	}		
+	if (i >= n) {
+		j = 0;
+		for(j = 0; k < n; k++) {
+			if(fabs(s->a[i-n][k]) > fabs(s->a[i-n][j])) {
+				j = k;
+			}
+		}
+		pivot(s, i-n, j);
+		i = j;	
+	} else if (i < n - 1) {
+		k = s->var[i];
+		s->var[i] = s->var[n-1];
+		s->var[n-1] = k;
+	}
+	free(s->c);
+	s->c = c;
+	s->y = y;
+	for(k = n-1; k < n + m - 1; k++) {
+		s->var[k] = s->var[k+1];
+	}
+	n = s->n;
+	s->n--;
+	double t[n];
+        for(k = 0; k < n; k++) {
+		for(j = 0; j < n; j++) {
+			if(k == s->var[j]) {
+				t[j] = t[j] + s->c[k];
+				goto next_k;
+			}
+		}
+		for(j = 0; j < m; j++) {
+			if(s->var[n+j] == k) {
+				break;
+			}	
+		}
+		s->y += s->c[k] * s->b[j];
+		for(i = 0; i < n; i++) {
+			t[i] -= s->c[k] * s->a[i][j];
+		}
+		next_k:;
+	}
+	for(i = 0; i < n; i++) {
+		s->c[i] = t[i];
+	}
+	free(s->x);
+	return true;
 }
 
 
@@ -175,35 +268,6 @@ double xsimplex(int m, int n, double** a, double* b, double* c, double* x, doubl
 
 double simplex(int m, int n, double** a, double* b, double* c, double* x, double y) {
 	return xsimplex(m, n, a, b, c, x, y, NULL, 0);
-}
-
-void print(simplex_t* s) {
-	double** a = s->a;
-	double* b = s->b;
-	double* c = s->c;
-	int* var = s->var;
-	int m = s->m;
-	int n = s->n;
-	int i, j;
-	printf("-----------------------------------------------\n");
-	printf("max z = ");
-	for(i = 0; i < m; i++) {
-		printf("%lfx_%d ", c[i],var[i]);
-		printf("+ ");
-	}
-	printf("%lf\n", s->y);
-
-	for(i = 0; i < m; i++) {
-		printf("x_%d = -(", var[i+n]);
-		for(j = 0; j < n; j++) {
-			printf("%lfx_%d", a[i][j], var[j]);
-			if (j != n - 1) {
-				printf(" + ");
-			}
-		}
-		printf(")\n");
-	}
-	printf("\n");
 }
 
 int main() {
