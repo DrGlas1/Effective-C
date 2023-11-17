@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
-#define EPSILON 1e-8
+#define EPSILON 1e-6
 
 typedef struct simplex_t{
 	int m; 			
@@ -60,7 +60,7 @@ int init(simplex_t* s, int m, int n, double** a, double* b, double* c, double* x
     	s->x = x;
     	s->y = y;
 	if (s->var == NULL) {	
-		s->var = malloc(sizeof(int) * (m + n + 1));
+		s->var = calloc(m+n+1,sizeof(int));
 		for(i = 0; i < m + n; i++) {
 			s->var[i] = i;
 		}
@@ -128,12 +128,10 @@ void prepare(simplex_t* s, int k) {
 		s->var[i] = s->var[i - 1];
 	}
 	s->var[n] = m + n;
-	n++;
+	n = n+1;
 	for(i = 0; i < m; i++) {
 		s->a[i][n - 1] = -1;
 	}
-	free(s->x);
-	free(s->c);
 	s->x = calloc(m+n, sizeof(double));
 	s->c = calloc(n, sizeof(double));
 	s->c[n-1] = -1;
@@ -150,11 +148,13 @@ int select_nonbasic(simplex_t* s) {
 	return -1;
 }
 
+
+
 bool initial(simplex_t* s, int m, int n, double** a, double* b, double* c, double* x, double y, int* var) {
 	int i, j, k;
 	double w;
 	k = init(s, m, n, a, b, c, x, y, var);
-	if (b[k] > 0) {
+	if (b[k] >= 0) {
 		return true;
 	}
 	print(s);
@@ -184,12 +184,13 @@ bool initial(simplex_t* s, int m, int n, double** a, double* b, double* c, doubl
 		pivot(s, i-n, j);
 		i = j;	
 	}
+	printf("testingplace\n");
+	print(s);
        	if (i < n - 1) {
 		k = s->var[i];
 		s->var[i] = s->var[n-1];
 		s->var[n-1] = k;
 		for(k = 0; k < m; k++) {
-			printf("testing change\n");
 			w = s->a[k][n-1];
 			s->a[k][n-1] = s->a[k][i];
 			s->a[k][i] = w;
@@ -201,7 +202,8 @@ bool initial(simplex_t* s, int m, int n, double** a, double* b, double* c, doubl
 	for(k = n-1; k < n + m - 1; k++) {
 		s->var[k] = s->var[k+1];
 	}
-	n = s->n = s->n-1;
+	n = s->n-1;
+	s->n = s->n -1;
 	//Look at this
 	double t[n];
         for(k = 0; k < n; k++) {
@@ -218,9 +220,9 @@ bool initial(simplex_t* s, int m, int n, double** a, double* b, double* c, doubl
 		}
 		s->y += s->c[k] * s->b[j];
 		for(i = 0; i < n; i++) {
-			t[i] -= s->c[k] * s->a[i][j];
+			t[i] -= s->c[k] * s->a[j][i];
 		}
-next_k:;
+		next_k:;
 	}
 	for(i = 0; i < n; i++) {
 		s->c[i] = t[i];
@@ -260,8 +262,8 @@ double xsimplex(int m, int n, double** a, double* b, double* c, double* x, doubl
 			}
 		}
 		for(i = 0; i < m; i++) {
-			if (s.var[n + i] < n) {
-				x[s.var[n + i]] = s.b[i];
+			if (s.var[n + 1] < n) {
+				x[s.var[n + 1]] = s.b[i];
 			}
 		}
 		free(s.var);
