@@ -80,9 +80,9 @@ void pivot(simplex_t* s, int row, int col) {
 	double* c = s->c;
 	int m = s->m;
 	int n = s->n;
-	int t = s->var[col];
-	int i;
-	int j;
+	int i,j,t;
+	printf("pivot row=%d col=%d\n", row, col);
+	t = s->var[col];
 	s->var[col] = s->var[n + row];
 	s->var[n + row] = t;
 	s->y += c[col] * b[row] / a[row][col];
@@ -113,31 +113,35 @@ void pivot(simplex_t* s, int row, int col) {
 	}
 	for(i = 0; i < n; i++) {
 		if (i != col) {
-			a[row][i] = -a[row][i] / a[row][col];
+			a[row][i] = a[row][i] / a[row][col];
 		}
 	}
 	b[row] = b[row] / a[row][col];
 	a[row][col] = 1 / a[row][col];
 }
 
-void prepare(simplex_t* s, int k) {
-	int m = s->m;
-	int n = s->n;
+void prepare(simplex_t** s, int k) {
+	int m = (*s)->m;
+	int n = (*s)->n;
 	int i;
 	for(i = m + n; i > n; i--) {
-		s->var[i] = s->var[i - 1];
+		(*s)->var[i] = (*s)->var[i - 1];
 	}
-	s->var[n] = m + n;
+	(*s)->var[n] = m + n;
 	n++;
 	for(i = 0; i < m; i++) {
-		s->a[i][n - 1] = -1;
+		(*s)->a[i][n - 1] = -1;
 	}
-	free(s->x);
-	free(s->c);
-	s->x = malloc(sizeof(double)*(m+n));
-	s->c = malloc(sizeof(double)*n);
-	s->n = n;
-	pivot(s, k, n - 1);
+	free((*s)->x);
+	free((*s)->c);
+	(*s)->x = malloc((m+n) * sizeof(double));
+	(*s)->c = malloc(n * sizeof(double));
+	(*s)->c[n-1] = -1;
+	(*s)->n = n;
+	print(*s);
+	pivot(*s, k, n - 1);
+	printf("after pivot\n");
+	print(*s);
 }
 
 int select_nonbasic(simplex_t* s) {
@@ -156,11 +160,11 @@ bool initial(simplex_t* s, int m, int n, double** a, double* b, double* c, doubl
 	if (b[k] > 0) {
 		return true;
 	}
-	printf("Prepare s");
-	prepare(s,k);
 	print(s);
+	prepare(&s,k);
 	n = s->n;
 	s->y = xsimplex(m, n, s->a, s->b, s->c, s->x, 0, s->var, 1);
+	print(s);
 	for(i = 0; i < m + n; i++) {
 		if(s->var[i] == m+n-1) {
 			if(fabs(s->x[i]) > EPSILON) {
@@ -175,17 +179,24 @@ bool initial(simplex_t* s, int m, int n, double** a, double* b, double* c, doubl
 	}		
 	if (i >= n) {
 		j = 0;
-		for(j = 0; k < n; k++) {
+		for(k = 0; k < n; k++) {
 			if(fabs(s->a[i-n][k]) > fabs(s->a[i-n][j])) {
 				j = k;
 			}
 		}
 		pivot(s, i-n, j);
 		i = j;	
-	} else if (i < n - 1) {
+	}
+       	if (i < n - 1) {
 		k = s->var[i];
 		s->var[i] = s->var[n-1];
 		s->var[n-1] = k;
+		for(k = 0; k < m; k++) {
+			printf("testing change\n");
+			w = s->a[k][n-1];
+			s->a[k][n-1] = s->a[k][i];
+			s->a[k][i] = w;
+		}
 	}
 	free(s->c);
 	s->c = c;
@@ -193,8 +204,7 @@ bool initial(simplex_t* s, int m, int n, double** a, double* b, double* c, doubl
 	for(k = n-1; k < n + m - 1; k++) {
 		s->var[k] = s->var[k+1];
 	}
-	n = s->n;
-	s->n--;
+	n = s->n = s->n-1;
 	double t[n];
         for(k = 0; k < n; k++) {
 		for(j = 0; j < n; j++) {
@@ -208,16 +218,17 @@ bool initial(simplex_t* s, int m, int n, double** a, double* b, double* c, doubl
 				break;
 			}	
 		}
-		printf("Questionable part");
+		printf("interesting\n");
 		s->y += s->c[k] * s->b[j];
 		for(i = 0; i < n; i++) {
 			t[i] -= s->c[k] * s->a[i][j];
 		}
-		next_k:;
+next_k:;
 	}
 	for(i = 0; i < n; i++) {
 		s->c[i] = t[i];
 	}
+	print(s);
 	free(s->x);
 	return true;
 }
