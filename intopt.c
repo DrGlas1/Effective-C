@@ -120,28 +120,25 @@ void pivot(simplex_t* s, int row, int col) {
 	a[row][col] = 1 / a[row][col];
 }
 
-void prepare(simplex_t** s, int k) {
-	int m = (*s)->m;
-	int n = (*s)->n;
+void prepare(simplex_t* s, int k) {
+	int m = s->m;
+	int n = s->n;
 	int i;
 	for(i = m + n; i > n; i--) {
-		(*s)->var[i] = (*s)->var[i - 1];
+		s->var[i] = s->var[i - 1];
 	}
-	(*s)->var[n] = m + n;
+	s->var[n] = m + n;
 	n++;
 	for(i = 0; i < m; i++) {
-		(*s)->a[i][n - 1] = -1;
+		s->a[i][n - 1] = -1;
 	}
-	free((*s)->x);
-	free((*s)->c);
-	(*s)->x = malloc((m+n) * sizeof(double));
-	(*s)->c = malloc(n * sizeof(double));
-	(*s)->c[n-1] = -1;
-	(*s)->n = n;
-	print(*s);
-	pivot(*s, k, n - 1);
-	printf("after pivot\n");
-	print(*s);
+	free(s->x);
+	free(s->c);
+	s->x = calloc(m+n, sizeof(double));
+	s->c = calloc(n, sizeof(double));
+	s->c[n-1] = -1;
+	s->n = n;
+	pivot(s, k, n - 1);
 }
 
 int select_nonbasic(simplex_t* s) {
@@ -161,7 +158,7 @@ bool initial(simplex_t* s, int m, int n, double** a, double* b, double* c, doubl
 		return true;
 	}
 	print(s);
-	prepare(&s,k);
+	prepare(s,k);
 	n = s->n;
 	s->y = xsimplex(m, n, s->a, s->b, s->c, s->x, 0, s->var, 1);
 	print(s);
@@ -205,6 +202,7 @@ bool initial(simplex_t* s, int m, int n, double** a, double* b, double* c, doubl
 		s->var[k] = s->var[k+1];
 	}
 	n = s->n = s->n-1;
+	//Look at this
 	double t[n];
         for(k = 0; k < n; k++) {
 		for(j = 0; j < n; j++) {
@@ -218,7 +216,6 @@ bool initial(simplex_t* s, int m, int n, double** a, double* b, double* c, doubl
 				break;
 			}	
 		}
-		printf("interesting\n");
 		s->y += s->c[k] * s->b[j];
 		for(i = 0; i < n; i++) {
 			t[i] -= s->c[k] * s->a[i][j];
@@ -235,14 +232,14 @@ next_k:;
 
 
 double xsimplex(int m, int n, double** a, double* b, double* c, double* x, double y, int* var, int h) {
-	simplex_t* s = malloc(sizeof(simplex_t));
+	simplex_t s;
 	int i, row, col;
-	if (!initial(s, m, n, a, b, c, x, y, var)) {
-		free(s->var);
+	if (!initial(&s, m, n, a, b, c, x, y, var)) {
+		free(s.var);
 		return NAN;
 	}
-	print(s);
-	while((col = select_nonbasic(s)) >= 0) {
+	print(&s);
+	while((col = select_nonbasic(&s)) >= 0) {
 		row = -1;
 		for(i = 0; i < m; i++) {
 			if (a[i][col] > EPSILON && (row < 0 || b[i] / a[i][col] < b[row]/a[row][col])) {
@@ -250,35 +247,33 @@ double xsimplex(int m, int n, double** a, double* b, double* c, double* x, doubl
 			}
 		}
 		if (row < 0) {
-			free(s->var);
+			free(s.var);
 			return INFINITY;
 		}
-		pivot(s, row, col);
-		print(s);
+		pivot(&s, row, col);
+		print(&s);
 	}
 	if (h == 0) {
 		for(i = 0; i < n; i++) {
-			if (s->var[i] < n) {
-				x[s->var[i]] = 0;
+			if (s.var[i] < n) {
+				x[s.var[i]] = 0;
 			}
 		}
 		for(i = 0; i < m; i++) {
-			if (s->var[n + i] < n) {
-				x[s->var[n + i]] = s->b[i];
+			if (s.var[n + i] < n) {
+				x[s.var[n + i]] = s.b[i];
 			}
 		}
-		free(s->var);
+		free(s.var);
 	} else {
 		for(i = 0; i < n; i++) {
 			x[i] = 0;
 		}
 		for(i = n; i < n+m; i++) {
-			x[i] = s->b[i-n];
+			x[i] = s.b[i-n];
 		}
 	}
-	double res = s->y;
-	free(s);
-	return res;
+	return s.y;
 }
 
 double simplex(int m, int n, double** a, double* b, double* c, double* x, double y) {
