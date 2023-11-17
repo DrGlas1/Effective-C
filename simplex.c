@@ -62,7 +62,7 @@ int init(simplex_t* s, int m, int n, double** a, double* b, double* c, double* x
     	s->x = x;
     	s->y = y;
 	if (s->var == NULL) {	
-		s->var = calloc(m+n+1,sizeof(int));
+		s->var = malloc((m+n+1) * sizeof(int));
 		for(i = 0; i < m + n; i++) {
 			s->var[i] = i;
 		}
@@ -135,8 +135,8 @@ void prepare(simplex_t* s, int k) {
 	for(i = 0; i < m; i++) {
 		s->a[i][n - 1] = -1;
 	}
-	s->x = calloc(m+n, sizeof(double));
-	s->c = calloc(n, sizeof(double));
+	s->x = malloc((m+n) * sizeof(double));
+	s->c = malloc(n * sizeof(double));
 	s->c[n-1] = -1;
 	s->n = n;
 	pivot(s, k, n - 1);
