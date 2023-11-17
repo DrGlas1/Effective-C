@@ -27,14 +27,14 @@ void print(simplex_t* s) {
 	int i, j;
 	printf("-----------------------------------------------\n");
 	printf("max z = ");
-	for(i = 0; i < m; i++) {
+	for(i = 0; i < n; i++) {
 		printf("%lfx_%d ", c[i],var[i]);
 		printf("+ ");
 	}
 	printf("%lf\n", s->y);
 
 	for(i = 0; i < m; i++) {
-		printf("x_%d = -(", var[i+n]);
+		printf("x_%d = %lf -(", var[i+n], b[i]);
 		for(j = 0; j < n; j++) {
 			printf("%lfx_%d", a[i][j], var[j]);
 			if (j != n - 1) {
@@ -156,7 +156,9 @@ bool initial(simplex_t* s, int m, int n, double** a, double* b, double* c, doubl
 	if (b[k] > 0) {
 		return true;
 	}
+	printf("Prepare s");
 	prepare(s,k);
+	print(s);
 	n = s->n;
 	s->y = xsimplex(m, n, s->a, s->b, s->c, s->x, 0, s->var, 1);
 	for(i = 0; i < m + n; i++) {
@@ -206,6 +208,7 @@ bool initial(simplex_t* s, int m, int n, double** a, double* b, double* c, doubl
 				break;
 			}	
 		}
+		printf("Questionable part");
 		s->y += s->c[k] * s->b[j];
 		for(i = 0; i < n; i++) {
 			t[i] -= s->c[k] * s->a[i][j];
@@ -227,6 +230,7 @@ double xsimplex(int m, int n, double** a, double* b, double* c, double* x, doubl
 		free(s->var);
 		return NAN;
 	}
+	print(s);
 	while((col = select_nonbasic(s)) >= 0) {
 		row = -1;
 		for(i = 0; i < m; i++) {
@@ -277,14 +281,13 @@ int main() {
 
 	printf("%d, %d\n", m, n);
 
-	double** a;
-	double b[m];
-	double c[n];
-	double x[n + 1];
+	double** a = (double**)malloc(sizeof(double) * m);
+	double* b = (double*)malloc(sizeof(double) * m);
+	double* c = (double*)malloc(sizeof(double) * n);
+	double* x =(double*)malloc(sizeof(double) * (n+1)); 
 	
 	int i, j;
 	
-	a = (double**)malloc(sizeof(double) * m);
 	for(i = 0; i < m; i++) {
 		a[i] = (double*)malloc(sizeof(double) * (n+1));
 	}
