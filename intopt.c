@@ -21,22 +21,24 @@ void print(simplex_t* s) {
 	double** a = s->a;
 	double* b = s->b;
 	double* c = s->c;
+	double* x = s->x;
 	int* var = s->var;
 	int m = s->m;
 	int n = s->n;
 	int i, j;
 	printf("-----------------------------------------------\n");
-	printf("max z = ");
+	printf("maximize: ");
 	for(i = 0; i < n; i++) {
-		printf("%lfx_%d ", c[i],var[i]);
+		printf("%.2fx_%d ", c[i],var[i]);
 		printf("+ ");
 	}
-	printf("%lf\n", s->y);
-
+	
+	printf("%.2f\n", s->y);
+	printf("\nsubject to: \n");
 	for(i = 0; i < m; i++) {
-		printf("x_%d = %lf -(", var[i+n], b[i]);
+		printf("x_%d = %.2f -(", var[i+n], b[i]);
 		for(j = 0; j < n; j++) {
-			printf("%lfx_%d", a[i][j], var[j]);
+			printf("%.2fx_%d", a[i][j], var[j]);
 			if (j != n - 1) {
 				printf(" + ");
 			}
@@ -81,7 +83,6 @@ void pivot(simplex_t* s, int row, int col) {
 	int m = s->m;
 	int n = s->n;
 	int i,j,t;
-	printf("pivot row=%d col=%d\n", row, col);
 	t = s->var[col];
 	s->var[col] = s->var[n + row];
 	s->var[n + row] = t;
@@ -118,6 +119,8 @@ void pivot(simplex_t* s, int row, int col) {
 	}
 	b[row] = b[row] / a[row][col];
 	a[row][col] = 1 / a[row][col];
+	printf("pivot row=%d col=%d\n", row, col);
+	print(s);
 }
 
 void prepare(simplex_t* s, int k) {
@@ -157,11 +160,11 @@ bool initial(simplex_t* s, int m, int n, double** a, double* b, double* c, doubl
 	if (b[k] >= 0) {
 		return true;
 	}
+	printf("b[%d]=%lf\n", k, b[k]);
 	print(s);
 	prepare(s,k);
 	n = s->n;
 	s->y = xsimplex(m, n, s->a, s->b, s->c, s->x, 0, s->var, 1);
-	print(s);
 	for(i = 0; i < m + n; i++) {
 		if(s->var[i] == m+n-1) {
 			if(fabs(s->x[i]) > EPSILON) {
@@ -184,8 +187,6 @@ bool initial(simplex_t* s, int m, int n, double** a, double* b, double* c, doubl
 		pivot(s, i-n, j);
 		i = j;	
 	}
-	printf("testingplace\n");
-	print(s);
        	if (i < n - 1) {
 		k = s->var[i];
 		s->var[i] = s->var[n-1];
@@ -227,21 +228,20 @@ bool initial(simplex_t* s, int m, int n, double** a, double* b, double* c, doubl
 	for(i = 0; i < n; i++) {
 		s->c[i] = t[i];
 	}
-	print(s);
 	free(s->x);
 	return true;
 }
 
 
 double xsimplex(int m, int n, double** a, double* b, double* c, double* x, double y, int* var, int h) {
-	simplex_t s;
+	simplex_t* s = malloc(sizeof(simplex_t));
 	int i, row, col;
-	if (!initial(&s, m, n, a, b, c, x, y, var)) {
-		free(s.var);
+	if (!initial(s, m, n, a, b, c, x, y, var)) {
+		free(s->var);
 		return NAN;
 	}
-	print(&s);
-	while((col = select_nonbasic(&s)) >= 0) {
+	print(s);
+	while((col = select_nonbasic(s)) >= 0) {
 		row = -1;
 		for(i = 0; i < m; i++) {
 			if (a[i][col] > EPSILON && (row < 0 || b[i] / a[i][col] < b[row]/a[row][col])) {
@@ -249,33 +249,34 @@ double xsimplex(int m, int n, double** a, double* b, double* c, double* x, doubl
 			}
 		}
 		if (row < 0) {
-			free(s.var);
+			free(s->var);
 			return INFINITY;
 		}
-		pivot(&s, row, col);
-		print(&s);
+		pivot(s, row, col);
 	}
 	if (h == 0) {
 		for(i = 0; i < n; i++) {
-			if (s.var[i] < n) {
-				x[s.var[i]] = 0;
+			if (s->var[i] < n) {
+				x[s->var[i]] = 0;
 			}
 		}
 		for(i = 0; i < m; i++) {
-			if (s.var[n + 1] < n) {
-				x[s.var[n + 1]] = s.b[i];
+			if (s->var[n + i] < n) {
+				x[s->var[n + i]] = s->b[i];
 			}
 		}
-		free(s.var);
+		free(s->var);
 	} else {
 		for(i = 0; i < n; i++) {
 			x[i] = 0;
 		}
 		for(i = n; i < n+m; i++) {
-			x[i] = s.b[i-n];
+			x[i] = s->b[i-n];
 		}
 	}
-	return s.y;
+	double res = s->y;
+	free(s);
+	return res;
 }
 
 double simplex(int m, int n, double** a, double* b, double* c, double* x, double y) {
@@ -316,7 +317,7 @@ int main() {
 
 	printf("max z = ");
 	for(i = 0; i < n; i++) {
-		printf("%lfx_%d ", c[i], i);
+		printf("%.2fx_%d ", c[i], i);
 		if (i != n - 1) {
 			printf("+ ");
 		}
@@ -325,7 +326,7 @@ int main() {
 
 	for(i = 0; i < m; i++) {
 		for(j = 0; j < n; j++) {
-			printf("%lfx_%d ", a[i][j], i);
+			printf("%.2fx_%d ", a[i][j], i);
 			if (j != n - 1) {
 				printf("+ ");
 			} else {
@@ -334,7 +335,9 @@ int main() {
 		}
 		printf("\n");
 	}
-	double res = simplex(m, n, a, b, c, x, 0); 
+	printf("\n");
+	double res = 0;
+	res = simplex(m, n, a, b, c, x, 0); 
 	printf("%lf\n", res);
 	
 	for(i = 0; i < m; i++) {
@@ -342,6 +345,8 @@ int main() {
 	}
 
 	free(a);
-
+	free(b);
+	free(c);
+	free(x);
 	return 0;
 }
