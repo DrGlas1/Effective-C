@@ -415,13 +415,13 @@ node_t* initial_node(int m, int n, double** a, double* b, double* c) {
 	p->max = (double*)malloc(n * sizeof(double));
 	p->m = m;
 	p->n = n;
-	for(i = 0; i < m + 1; i++) {
+	for(i = 0; i < m; i++) {
 		for(j = 0; j < n + 1; j++) {
 			p->a[i][j] = a[i][j];
 		}
 		p->b[i] = b[i];
 	}
-	for(i = 0; i < n + 1; i++) {
+	for(i = 0; i < n; i++) {
 		p->c[i] = c[i];
 	}
 	for(int i = 0; i < n; i++) { 
