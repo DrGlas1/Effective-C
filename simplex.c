@@ -5,8 +5,7 @@
 #define EPSILON 1e-6
 
 typedef struct simplex_t{
-	int m; 			
-	int n; 			
+	int m, n; 			
 	int* var;
 	double** a;		 
 	double* b;		
