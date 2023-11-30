@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdbool.h>
+#include <string.h>
 #define EPSILON 1e-6
 
 typedef struct simplex_t{
@@ -121,7 +122,17 @@ void prune_nodes(queue** head, double z) {
 		}
 		
 	}
-} 
+}
+
+void print_length(queue* h) {
+	int l = 0;
+	return;
+	while(h != NULL) {
+		l++;
+		h = h->succ;
+	}
+	printf("%d\n",l);
+}
 
 void print_queue(queue* h) {
 	while(h != NULL && h->node != NULL) {
@@ -165,11 +176,8 @@ void print(simplex_t* s) {
 	printf("\n");
 }
 
-
-
 int init(simplex_t* s, int m, int n, double** a, double* b, double* c, double* x, double y, int* var) {
-	int i;
-	int k = 0;
+	int i, k;
 	s->m = m;
     	s->n = n;
     	s->var = var;
@@ -178,13 +186,14 @@ int init(simplex_t* s, int m, int n, double** a, double* b, double* c, double* x
     	s->c = c;
     	s->x = x;
     	s->y = y;
+	printf("heloooeloo %d %d\n",m,n);
 	if (s->var == NULL) {	
 		s->var = malloc((m+n+1) * sizeof(int));
 		for(i = 0; i < m + n; i++) {
 			s->var[i] = i;
 		}
 	}
-	for (i = 1; i < m; i++) {
+	for (k = 0,i = 1; i < m; i++) {
 		if (b[i] < b[k]) {
 			k = i;
 		}
@@ -248,7 +257,7 @@ void prepare(simplex_t* s, int k) {
 		s->var[i] = s->var[i - 1];
 	}
 	s->var[n] = m + n;
-	n = n+1;
+	n++;
 	for(i = 0; i < m; i++) {
 		s->a[i][n - 1] = -1;
 	}
@@ -256,6 +265,8 @@ void prepare(simplex_t* s, int k) {
 	s->c = malloc(n * sizeof(double));
 	s->c[n-1] = -1;
 	s->n = n;
+	printf("S after prepare\n");
+	print(s);
 	pivot(s, k, n - 1);
 }
 
@@ -274,10 +285,13 @@ bool initial(simplex_t* s, int m, int n, double** a, double* b, double* c, doubl
 	int i, j, k;
 	double w;
 	k = init(s, m, n, a, b, c, x, y, var);
+	printf("Hello\n");
+	print(s);
 	if (b[k] >= 0) {
 		return true;
 	}
 	printf("b[%d]=%lf\n", k, b[k]);
+	printf("initial\n");
 	print(s);
 	prepare(s,k);
 	n = s->n;
@@ -320,8 +334,7 @@ bool initial(simplex_t* s, int m, int n, double** a, double* b, double* c, doubl
 	for(k = n-1; k < n + m - 1; k++) {
 		s->var[k] = s->var[k+1];
 	}
-	n = s->n-1;
-	s->n = s->n -1;
+	n = --s->n;
 	//Look at this
 	double t[n];
         for(k = 0; k < n; k++) {
@@ -357,6 +370,7 @@ double xsimplex(int m, int n, double** a, double* b, double* c, double* x, doubl
 		free(s->var);
 		return NAN;
 	}
+	printf("xsimplex\n");
 	print(s);
 	while((col = select_nonbasic(s)) >= 0) {
 		row = -1;
@@ -448,24 +462,26 @@ node_t* extend(node_t* p, int m, int n, double** a, double* b, double* c, int k,
 	q->n = p->n;
 	q->h = -1;
 	q->a = (double**)malloc((q->m+1) * sizeof(double));
-	for(i = 0; i < m + 1; i++) {
+	for(i = 0; i < q->m + 1; i++) {
 		q->a[i] = (double*)malloc((q->n+1) * sizeof(double));
 	}
 	q->b = (double*)malloc((q->m+1) * sizeof(double));
 	q->c = (double*)malloc((q->n+1) * sizeof(double));
 	q->x = (double*)malloc((q->n+1) * sizeof(double));
-	q->min = (double*)malloc(q->n * sizeof(double));
-	q->max = (double*)malloc(q->n * sizeof(double));
-	for(i = 0; i < n; i++) {
+	q->min = (double*)malloc(n * sizeof(double));
+	q->max = (double*)malloc(n * sizeof(double));
+	for(i = 0; i < p->n; i++) {
 		q->min[i] = p->min[i];
 		q->max[i] = p->max[i];
-		q->c[i] = p->c[i];
 	}
-	for(i = 0; i < m + 1; i++) {
-		for(j = 0; j < n + 1; j++) {
-			q->a[i][j] = p->a[i][j];
+	for(i = 0; i < m; i++) {
+		for(j = 0; j < n; j++) {
+			q->a[i][j] = a[i][j];
 		}
-		q->b[i] = p->b[i];
+		q->b[i] = b[i];
+	}
+	for(i = 0; i < n; i++) {
+		q->c[i] = c[i];
 	}
 	if (ak > 0) {
 		if (q->max[k] == INFINITY || bk < q->max[k]) {
@@ -473,17 +489,18 @@ node_t* extend(node_t* p, int m, int n, double** a, double* b, double* c, int k,
 		} else if (q->min[k] == -INFINITY || -bk > q->min[k]) {
 			q->min[k] = -bk;
 		}
-		for(i = m, j = 0; j < n; j++) {
-			if (q->min[j] > -INFINITY) {
-				q->a[i][j] = -1;
-				q->b[i] = -q->min[j];
-				i++;
-			}
-			if (q->max[j] < INFINITY) {
-				q->a[i][j] = 1;
-				q->b[i] = q->max[j];
-				i++;
-			}
+		
+	}
+	for(i = m, j = 0; j < n; j++) {
+		if (q->min[j] > -INFINITY) {
+			q->a[i][j] = -1;
+			q->b[i] = -q->min[j];
+			i++;
+		}
+		if (q->max[j] < INFINITY) {
+			q->a[i][j] = 1;
+			q->b[i] = q->max[j];
+			i++;
 		}
 	}
 	return q;
@@ -491,7 +508,7 @@ node_t* extend(node_t* p, int m, int n, double** a, double* b, double* c, int k,
 
 bool is_integer(double* xp) {
 	double x = *xp;
-	double r = round(x);
+	double r = lround(x);
 	if (fabs(r - x) < EPSILON) {
 		*xp = r;
 		return true;
@@ -510,12 +527,13 @@ bool integer(node_t* p) {
 }
 
 void bound(node_t* p, queue* h, double* zp, double* x) {
+	if(p == NULL) return; //TODO - remove
 	if (p->z > *zp) {
 		*zp = p->z;
-		for(int i = 0; i < p->n; i++) {
-			x[i] = p->x[i];
-		}
+		memcpy(x, p->x, sizeof(double) * p->n);
+		
 		print_queue(h);
+		printf("Pruning nodes\n");
 		prune_nodes(&h, p->z);
 		printf("%lf\n", p->z);
 		print_queue(h);
@@ -537,7 +555,7 @@ bool branch(node_t* q, double z) {
 				min = q->min[h];
 			}
 			max = q->max[h];
-			if (floor(q->x[h]) < min || floor(q->x[h]) > max) continue;
+			if (floor(q->x[h]) < min || ceil(q->x[h]) > max) continue;
 			q->h = h;
 			q->xh = q->x[h];
 			return true;
@@ -546,7 +564,7 @@ bool branch(node_t* q, double z) {
 	return false;
 }
 
-void succ(node_t* p, queue* h, int n, int m, double** a, double* b, double* c, int k, double ak, double bk, double* zp, double* x) {
+void succ(node_t* p, queue* h, int m, int n, double** a, double* b, double* c, int k, double ak, double bk, double* zp, double* x) {
 	node_t* q = extend(p, m, n, a, b, c, k, ak, bk);
 	if (q == NULL) return;
 	q->z = simplex(q->m, q->n, q->a, q->b, q->c, q->x, 0);
@@ -562,7 +580,7 @@ void succ(node_t* p, queue* h, int n, int m, double** a, double* b, double* c, i
 }
 
 double intopt(int m, int n, double** a, double* b, double* c, double* x) {
-	node_t* p = initial_node(m, n, a, b, c);
+	node_t* p = initial_node(m, n, a, b, c), *node;
 	queue* h = (queue*)malloc(sizeof(queue));
 	h->succ = NULL;
 	h->node = p;
@@ -571,7 +589,7 @@ double intopt(int m, int n, double** a, double* b, double* c, double* x) {
 	if (integer(p) || !is_finite(p->z)) {
 		z = p->z;
 		if (integer(p)) {
-			for(int i = 0; i < n; i++) {
+			for(int i = 0; i < p->n; i++) {
 				x[i] = p->x[i];
 			}
 		}
@@ -582,17 +600,18 @@ double intopt(int m, int n, double** a, double* b, double* c, double* x) {
 			temp = temp->succ;
 			free(prev);
 		}
+		free_node(p);
 		return z;
 	}
 	branch(p, z);
 	while(h != NULL) {
 		printf("Before pop\n");
 		print_queue(h);
-		node_t* node = pop(&h);
+		node = pop(&h);
 		printf("After pop\n");
 		print_queue(h);
-		succ(p, h, m, n, a, b, c, p->h, 1, floor(p->xh), &z, x);
-		succ(p, h, m, n, a, b, c, p->h, -1, -ceil(p->xh), &z, x);
+		succ(node, h, m, n, a, b, c, node->h, 1, floor(node->xh), &z, x);
+		succ(node, h, m, n, a, b, c, node->h, -1, -ceil(node->xh), &z, x);
 		free_node(node);
 	}
 	if (z == -INFINITY) return NAN;
