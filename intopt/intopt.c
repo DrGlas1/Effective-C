@@ -8,8 +8,7 @@
 
 double EPSILON = 1e-6;
 
-typedef struct node_t node_t;
-struct node_t {
+typedef struct node_t {
   int m, n, k, h;
   double xh, ak, bk;
   double *min;
@@ -19,7 +18,7 @@ struct node_t {
   double *x;
   double *c;
   double z;
-};
+} node_t;
 
 typedef struct set_t set_t;
 struct set_t {
@@ -76,14 +75,6 @@ void print_set(set_t* h) {
   }
 }
 
-bool node_in_set(set_t* h, node_t* node) {
-	while(h != NULL) {
-		if (h->node == node) return true;
-		h = h->succ;
-	}
-	return false;
-}
-
 void free_node(node_t *node) {
   free(node->min);
   free(node->max);
@@ -95,16 +86,6 @@ void free_node(node_t *node) {
   }
   free(node->a);
   free(node);
-}
-
-bool isempty(set_t *h) {
-  while (h != NULL) {
-    if (h->node != NULL) {
-      return false;
-    }
-    h = h->succ;
-  }
-  return true;
 }
 
 set_t *new_set(node_t *node) {
