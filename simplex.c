@@ -2,17 +2,10 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
+#include "simplex.h"
 #define EPSILON 1e-6
 
-typedef struct simplex_t{
-	int m, n; 			
-	int* var;
-	double** a;		 
-	double* b;		
-	double* c;
-	double* x;
-	double y;		
-} simplex_t;
+
 
 bool initial(simplex_t *s, int m, int n, double **a, double *b, double *c,
             double *x, double y, int *var);

@@ -27,18 +27,6 @@ struct set_t {
   node_t *node;
 };
 
-typedef struct simplex_t simplex_t;
-struct simplex_t {
-  int m;
-  int n;
-  int *var;
-  double **a;
-  double *b;
-  double *x;
-  double *c;
-  double y;
-};
-
 void free_node(node_t *node);
 
 void print(simplex_t* s) {
