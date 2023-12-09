@@ -29,11 +29,98 @@ typedef struct node_t {
   double z;
 } node_t;
 
-typedef struct set_t set_t;
-struct set_t {
-  set_t *succ;
+typedef struct p_queue p_queue;
+struct p_queue {
+  p_queue *succ;
   node_t *node;
 };
+
+void free_node(node_t *node) {
+  free(node->min);
+  free(node->max);
+  free(node->b);
+  free(node->x);
+  free(node->c);
+  for (int i = 0; i < node->m + 1; i++) {
+    free(node->a[i]);
+  }
+  free(node->a);
+  free(node);
+}
+
+p_queue *new_set(node_t *node) {
+  p_queue *set = calloc(1, sizeof(p_queue));
+
+  set->succ = NULL;
+  set->node = node;
+
+  return set;
+}
+
+void add(p_queue **set, node_t *node) {
+  p_queue* n = new_set(node);
+  if (*set == NULL || (*set)->node->z < node->z) {
+    n->succ = *set;
+    *set = n;
+    return;
+  }
+  p_queue* temp = *set;
+  while (temp->succ != NULL && temp->succ->node->z > node->z) {
+    temp = temp->succ;
+  }
+  n->succ = temp->succ;
+  temp->succ = n;
+}
+
+void prune_nodes(p_queue** head, double z) {
+  p_queue* temp = *head;
+  p_queue *prev = NULL;
+  while (temp != NULL) {
+      if (temp != NULL && temp->node->z + EPSILON < z) {
+        if (prev == NULL) {
+              *head = temp->succ;
+        } else {
+            prev->succ = temp->succ;
+      }
+      free_node(temp->node);
+      free(temp);
+	    temp = (prev == NULL) ? *head : prev->succ;
+      } else {
+          prev = temp;
+          temp = temp->succ;
+      }
+  }
+}
+
+node_t* pop(p_queue** head) {
+    if (*head == NULL) {
+        return NULL;
+    }
+
+    p_queue* temp = *head;
+    p_queue* prev = NULL;
+
+    while (temp != NULL && temp->node == NULL) {
+        prev = temp;
+        temp = temp->succ;
+    }
+
+    if (temp == NULL) {
+        return NULL;
+    }
+
+    node_t* node = temp->node;
+
+    if (prev == NULL) {
+        *head = temp->succ;
+    } else {
+        prev->succ = temp->succ;
+    }
+    free(temp);
+    return node;
+}
+
+
 
 bool initial(simplex_t *s, int m, int n, double **a, double *b, double *c,
             double *x, double y, int *var);
@@ -280,89 +367,6 @@ double simplex(int m, int n, double **a, double *b, double *c, double *x,
   return xsimplex(m, n, a, b, c, x, y, NULL, 0);
 }
 
-void free_node(node_t *node) {
-  free(node->min);
-  free(node->max);
-  free(node->b);
-  free(node->x);
-  free(node->c);
-  for (int i = 0; i < node->m + 1; i++) {
-    free(node->a[i]);
-  }
-  free(node->a);
-  free(node);
-}
-
-set_t *new_set(node_t *node) {
-  set_t *set = calloc(1, sizeof(set_t));
-
-  set->succ = NULL;
-  set->node = node;
-
-  return set;
-}
-
-bool add(set_t **set, node_t *node) {
-  set_t* temp = *set;
-  if (temp == NULL) {
-  	*set = new_set(node);
-	return true;
-  }
-  while (temp->succ != NULL) {
-    temp = temp->succ;
-  }
-  temp->succ = new_set(node);
-  return true;
-}
-
-void prune_nodes(set_t** head, double z) {
-  set_t* temp = *head;
-  set_t *prev = NULL;
-  while (temp != NULL) {
-      if (temp != NULL && temp->node->z + EPSILON < z) {
-        if (prev == NULL) {
-              *head = temp->succ;
-        } else {
-            prev->succ = temp->succ;
-      }
-      free_node(temp->node);
-      free(temp);
-	    temp = (prev == NULL) ? *head : prev->succ;
-      } else {
-          prev = temp;
-          temp = temp->succ;
-      }
-  }
-}
-
-node_t* pop(set_t** head) {
-    if (*head == NULL) {
-        return NULL;
-    }
-
-    set_t* temp = *head;
-    set_t* prev = NULL;
-
-    while (temp != NULL && temp->node == NULL) {
-        prev = temp;
-        temp = temp->succ;
-    }
-
-    if (temp == NULL) {
-        return NULL;
-    }
-
-    node_t* node = temp->node;
-
-    if (prev == NULL) {
-        *head = temp->succ;
-    } else {
-        prev->succ = temp->succ;
-    }
-    free(temp);
-    return node;
-}
-
 node_t *initial_node(int m, int n, double **a, double *b, double *c) {
   node_t *p = malloc(sizeof(node_t));
   int i, j;
@@ -516,7 +520,7 @@ int branch(node_t *q, double z) {
   return 0;
 }
 
-void succ(node_t *p, set_t **h, int m, int n, double **a, double *b, double *c,
+void succ(node_t *p, p_queue **h, int m, int n, double **a, double *b, double *c,
           int k, double ak, double bk, double *zp, double *x) {
   node_t *q = extend(p, m, n, a, b, c, k, ak, bk);
   if (q == NULL) {
@@ -537,7 +541,7 @@ void succ(node_t *p, set_t **h, int m, int n, double **a, double *b, double *c,
 double intopt(int m, int n, double **a, double *b, double *c, double *x) {
   node_t *p = initial_node(m, n, a, b, c);
 
-  set_t *h = new_set(p);
+  p_queue *h = new_set(p);
 
   double z = -INFINITY; 
   p->z = simplex(p->m, p->n, p->a, p->b, p->c, p->x, 0);
@@ -551,7 +555,7 @@ double intopt(int m, int n, double **a, double *b, double *c, double *x) {
       if (h->node != NULL) {
         free_node(h->node);
       }
-      set_t *temp = h->succ;
+      p_queue *temp = h->succ;
       free(h);
       h = temp;
     }
@@ -573,7 +577,7 @@ double intopt(int m, int n, double **a, double *b, double *c, double *x) {
     if (h->node != NULL) {
       free_node(h->node);
     }
-    set_t *temp = h->succ;
+    p_queue *temp = h->succ;
     free(h);
     h = temp;
   }
@@ -584,6 +588,4 @@ double intopt(int m, int n, double **a, double *b, double *c, double *x) {
     return z;
   }
 }
-
-
 
