@@ -48,7 +48,7 @@ void free_node(node_t *node) {
 }
 
 p_queue *new_set(node_t *node) {
-  p_queue *set = calloc(1, sizeof(p_queue));
+  p_queue *set = malloc(sizeof(p_queue));
 
   set->succ = NULL;
   set->node = node;
@@ -326,8 +326,7 @@ bool initial(simplex_t *s, int m, int n, double **a, double *b, double *c,
   }
 
   n = --s->n;
-  double *t;
-  t = calloc(n, sizeof(double));
+  double *t = calloc(n, sizeof(double));
 
   for (k = 0; k < n; k += 1) {
     for (j = 0; j < n; j += 1) {
@@ -363,9 +362,9 @@ double simplex(int m, int n, double **a, double *b, double *c, double *x,
 node_t *initial_node(int m, int n, double **a, double *b, double *c) {
   node_t *p = malloc(sizeof(node_t));
   int i, j;
-  p->a = calloc((m + 1), sizeof(double *));
+  p->a = malloc((m + 1) * sizeof(double *));
   for (i = 0; i < m + 1; i += 1) {
-    p->a[i] = calloc(n + 1, sizeof(double));
+    p->a[i] = malloc((n + 1) * sizeof(double));
   }
   p->b = malloc((m + 1)* sizeof(double));
   p->c = malloc((n + 1)* sizeof(double));
@@ -394,7 +393,7 @@ node_t *initial_node(int m, int n, double **a, double *b, double *c) {
 
 node_t *extend(node_t *p, int m, int n, double **a, double *b, double *c, int k,
                double ak, double bk) {
-  node_t *q = calloc(1, sizeof(node_t));
+  node_t *q = malloc(sizeof(node_t));
   int i, j;
   q->k = k;
   q->ak = ak;
@@ -409,15 +408,15 @@ node_t *extend(node_t *p, int m, int n, double **a, double *b, double *c, int k,
 
   q->n = p->n;
   q->h = -1;
-  q->a = (double**)calloc((q->m + 1), sizeof(double));
+  q->a = (double**)malloc((q->m + 1) * sizeof(double));
   for (i = 0; i < q->m + 1; i += 1) {
-    q->a[i] = calloc((q->n + 1), sizeof(double));
+    q->a[i] = (double*)calloc((q->n + 1), sizeof(double));
   }
-  q->b = malloc((q->m + 1) * sizeof(double));
-  q->c = malloc((q->n + 1) * sizeof(double));
-  q->x = malloc((q->n + 1) * sizeof(double));
-  q->min = malloc(n * sizeof(double));
-  q->max = malloc(n * sizeof(double));
+  q->b =(double*) malloc((q->m + 1) * sizeof(double));
+  q->c = (double*)malloc((q->n + 1) * sizeof(double));
+  q->x = (double*)malloc((q->n + 1) * sizeof(double));
+  q->min = (double*)malloc(n * sizeof(double));
+  q->max = (double*)malloc(n * sizeof(double));
   for (i = 0; i < p->n; i += 1) {
     q->min[i] = p->min[i];
     q->max[i] = p->max[i];
@@ -588,12 +587,12 @@ int main() {
   double **a;
   double *b;
 
-  c = malloc(n * sizeof(double));
-  a = malloc(m * sizeof(double *));
+  c = (double*)malloc(n * sizeof(double));
+  a = (double**)malloc(m * sizeof(double *));
   for (i = 0; i < m; i += 1) {
-    a[i] = malloc((n + 1) * sizeof(double));
+    a[i] = (double*)malloc((n + 1) * sizeof(double));
   }
-  b = malloc(m * sizeof(double));
+  b = (double*)malloc(m * sizeof(double));
 
   for (i = 0; i < n; i += 1) {
     scanf("%lf", &c[i]);
