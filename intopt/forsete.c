@@ -94,7 +94,7 @@ void pivot(simplex_t *s, int row, int col) {
       c[i] = c[i] - c[col] * a[row][i] * divisor;
     }
   }
-  c[col] = -c[col] / a[row][col];
+  c[col] = -c[col] * divisor;
 
   for (i = 0; i < m; i += 1) {
     if (i != row) {
@@ -117,7 +117,7 @@ void pivot(simplex_t *s, int row, int col) {
   }
   for (i = 0; i < n; i += 1) {
     if (i != col) {
-      a[row][i] = a[row][i] / a[row][col];
+      a[row][i] = a[row][i] * divisor;
     }
   }
   b[row] = b[row] * divisor;
