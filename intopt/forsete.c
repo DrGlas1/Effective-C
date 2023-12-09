@@ -19,14 +19,13 @@ typedef struct simplex_t{
 
 typedef struct node_t {
   int m, n, k, h;
-  double xh, ak, bk;
+  double xh, ak, bk, z;
   double *min;
   double *max;
   double **a;
   double *b;
   double *x;
   double *c;
-  double z;
 } node_t;
 
 typedef struct p_queue p_queue;
@@ -455,7 +454,6 @@ node_t *extend(node_t *p, int m, int n, double **a, double *b, double *c, int k,
 }
 
 int is_integer(double *xp) {
-
   double x = *xp;
   double r = lround(x); 
   if (fabs(r - x) < EPSILON) {
@@ -477,21 +475,19 @@ int integer(node_t *p) {
 }
 
 void bound(node_t* p, double* zp, double* x) {
-	if(p == NULL) return;
-	if (p->z > *zp) {
-		*zp = p->z;
-		memcpy(x, p->x, sizeof(double) * p->n);
-	}
+  if(p == NULL) return;
+  if (p->z > *zp) {
+    *zp = p->z;
+    memcpy(x, p->x, sizeof(double) * p->n);
+  }
 }
 
 int branch(node_t *q, double z) {
-  double min, max;
   if (q->z < z) {
     return 0;
   }
-
+  double min, max;
   int h, i;
-
   for (h = 0; h < q->n; h += 1) {
     if (!is_integer(&q->x[h])) {
       if (q->min[h] == -INFINITY) {
@@ -582,7 +578,6 @@ double intopt(int m, int n, double **a, double *b, double *c, double *x) {
     return z;
   }
 }
-
 
 int main() {
   int i, j;
