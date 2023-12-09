@@ -176,20 +176,11 @@ void pivot(simplex_t *s, int row, int col) {
   s->var[n + row] = t;
   s->y = s->y + c[col] * b[row] * divisor;
 
-  for (i = 0; i < n; i += 1) {
-    if (i != col) {
-      c[i] = c[i] - c[col] * a[row][i] * divisor;
-    }
-  }
   c[col] = -c[col] * divisor;
 
   for (i = 0; i < m; i += 1) {
     if (i != row) {
-      b[i] = b[i] - a[i][col] * b[row] * divisor;
-    }
-  }
-  for (i = 0; i < m; i += 1) {
-    if (i != row) {
+      b[i] = b[i] - a[i][col] * b[row] * divisor; 
       for (j = 0; j < n; j += 1) {
         if (j != col) {
           a[i][j] = a[i][j] - a[i][col] * a[row][j] * divisor;
@@ -204,6 +195,7 @@ void pivot(simplex_t *s, int row, int col) {
   }
   for (i = 0; i < n; i += 1) {
     if (i != col) {
+      c[i] = c[i] - c[col] * a[row][i] * divisor;
       a[row][i] = a[row][i] * divisor;
     }
   }
@@ -588,4 +580,45 @@ double intopt(int m, int n, double **a, double *b, double *c, double *x) {
     return z;
   }
 }
+int main() {
+  int i, j;
+  int m;
+  int n;
+  scanf("%d %d", &m, &n);
+  double *c;
+  double **a;
+  double *b;
 
+  c = malloc(n * sizeof(double));
+  a = malloc(m * sizeof(double *));
+  for (i = 0; i < m; i += 1) {
+    a[i] = malloc((n + 1) * sizeof(double));
+  }
+  b = malloc(m * sizeof(double));
+
+  for (i = 0; i < n; i += 1) {
+    scanf("%lf", &c[i]);
+  }
+
+  for (i = 0; i < m; i += 1) {
+    for (j = 0; j < n; j += 1) {
+      scanf("%lf", &a[i][j]);
+    }
+  }
+
+  for (i = 0; i < m; i += 1) {
+    scanf("%lf", &b[i]);
+  }
+
+  double *x = malloc(m * sizeof(double));
+  double res = intopt(m, n, a, b, c, x); // Call either intopt or simplex
+  printf("ANSWER IS: %lf \n", res);
+  free(x);
+  for (i = 0; i < m; i += 1) {
+    free(a[i]);
+  }
+  free(a);
+  free(b);
+  free(c);
+  return 0;
+}
