@@ -76,15 +76,15 @@ void prune_nodes(p_queue** head, double z) {
   p_queue* temp = *head;
   p_queue *prev = NULL;
   while (temp != NULL) {
-      if (temp != NULL && temp->node->z + EPSILON < z) {
-        if (prev == NULL) {
-              *head = temp->succ;
-        } else {
+     if (temp != NULL && temp->node->z + EPSILON < z) {
+      if (prev == NULL) {
+        *head = temp->succ;
+      } else {
             prev->succ = temp->succ;
       }
       free_node(temp->node);
       free(temp);
-	    temp = (prev == NULL) ? *head : prev->succ;
+      temp = (prev == NULL) ? *head : prev->succ;
       } else {
           prev = temp;
           temp = temp->succ;
@@ -166,7 +166,9 @@ void pivot(simplex_t *s, int row, int col) {
   double *b = s->b;
   double *c = s->c;
 
-  double divisor = 1 / a[row][col];
+  double rec = 1 / a[row][col];
+  double crec = c[col] * rec;
+  double brec = b[row] * rec;
 
   int m = s->m;
   int n = s->n;
@@ -174,33 +176,33 @@ void pivot(simplex_t *s, int row, int col) {
   t = s->var[col];
   s->var[col] = s->var[n + row];
   s->var[n + row] = t;
-  s->y = s->y + c[col] * b[row] * divisor;
+  s->y = s->y + b[row] * crec;
 
-  c[col] = -c[col] * divisor;
+  for (i = 0; i < n; i += 1) {
+    if (i != col) {
+      c[i]-= a[row][i] * crec;
+    }
+  }
 
   for (i = 0; i < m; i += 1) {
     if (i != row) {
-      b[i] = b[i] - a[i][col] * b[row] * divisor; 
+      b[i] -= a[i][col] * brec; 
       for (j = 0; j < n; j += 1) {
         if (j != col) {
-          a[i][j] = a[i][j] - a[i][col] * a[row][j] * divisor;
+          a[i][j] -= a[i][col] * a[row][j] * rec;
         }
       }
     }
   }
   for (i = 0; i < m; i += 1) {
-    if (i != row) {
-      a[i][col] = -a[i][col] * divisor;
-    }
+    a[i][col] *= -rec;
   }
   for (i = 0; i < n; i += 1) {
-    if (i != col) {
-      c[i] = c[i] - c[col] * a[row][i] * divisor;
-      a[row][i] = a[row][i] * divisor;
-    }
+    a[row][i] *= rec;
   }
-  b[row] = b[row] * divisor;
-  a[row][col] = divisor;
+  c[col] = -crec;
+  b[row] = brec;
+  a[row][col] = rec;
 }
 
 void prepare(simplex_t *s, int k) {
@@ -580,6 +582,8 @@ double intopt(int m, int n, double **a, double *b, double *c, double *x) {
     return z;
   }
 }
+
+
 int main() {
   int i, j;
   int m;
