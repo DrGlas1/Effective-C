@@ -5,9 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define ALPHA 0.6
 #define EPSILON 1e-6
-#define ALPHA 0.5
-#define INIT_P_COST 1.0
 
 typedef struct simplex_t{
 	int m, n; 			
@@ -150,14 +149,14 @@ int init(simplex_t *s, int m, int n, double **a, double *b, double *c,
 }
 
 int select_nonbasic(simplex_t *s) {
-  int i, max = -1;
+  int i, max;
   temp = EPSILON;
   for (i = 0; i < s->n; i++) {
     if(s->c[i] > temp) {
       max = i, temp = s->c[i];
     }
   }
-  return max;
+  return (temp != EPSILON) ? max : -1;
 }
 
 void pivot(simplex_t *s, int row, int col) {
@@ -490,28 +489,30 @@ int branch(node_t *q, double z) {
   if (q->z < z) {
     return 0;
   }
-  double min, max;
-  int h, i;
-  for(h = 0; h < q->n; h += 1) {
-    if (!is_integer(&q->x[h])) {
-      if (q->min[h] == -INFINITY) {
+  double min, max, recip = ALPHA;
+  int i, b = 0; 
+  for(i = 0; i < q->n; i++) {
+    if (!is_integer(&q->x[i])) {
+      if (q->min[i] == -INFINITY) {
         min = 0;
       } else {
-        min = q->min[h];
+        min = q->min[i];
       }
-      max = q->max[h];
+      max = q->max[i];
 
-      if (floor(q->x[h]) < min || ceil(q->x[h]) > max) {
+      if (floor(q->x[i]) < min || ceil(q->x[i]) > max) {
         continue;
       }
-
-      q->h = h;
-      q->xh = q->x[h];
-
-      return 1;
+      temp = fabs(fabs(q->x[i] - floor(q->x[i])) - ALPHA);
+      if (temp < recip) {
+        recip = temp;
+        q->h = i;
+        q->xh = q->x[i];
+        b = 1;
+      }
     }
   }
-  return 0;
+  return b;
 }
 
 void update_p_cost(double* p_up, double* p_down, int k, double delta) {
