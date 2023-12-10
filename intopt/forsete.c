@@ -150,13 +150,14 @@ int init(simplex_t *s, int m, int n, double **a, double *b, double *c,
 }
 
 int select_nonbasic(simplex_t *s) {
-  int i;
-  for (i = 0; i < s->n; i += 1) {
-    if (s->c[i] > EPSILON) {
-      return i;
+  int i, max = -1;
+  temp = EPSILON;
+  for (i = 0; i < s->n; i++) {
+    if(s->c[i] > temp) {
+      max = i, temp = s->c[i];
     }
   }
-  return -1;
+  return max;
 }
 
 void pivot(simplex_t *s, int row, int col) {
