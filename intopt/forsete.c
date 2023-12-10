@@ -6,6 +6,8 @@
 #include <string.h>
 
 #define EPSILON 1e-6
+#define ALPHA 0.5
+#define INIT_P_COST 1.0
 
 typedef struct simplex_t{
 	int m, n; 			
@@ -34,6 +36,8 @@ struct p_queue {
   node_t *node;
 };
 
+double temp, recip, x_recip;
+
 void free_node(node_t *node) {
   free(node->min);
   free(node->max);
@@ -49,10 +53,8 @@ void free_node(node_t *node) {
 
 p_queue *new_set(node_t *node) {
   p_queue *set = malloc(sizeof(p_queue));
-
   set->succ = NULL;
   set->node = node;
-
   return set;
 }
 
@@ -92,31 +94,28 @@ void prune_nodes(p_queue** head, double z) {
 }
 
 node_t* pop(p_queue** head) {
-    if (*head == NULL) {
-        return NULL;
-    }
+  if (*head == NULL) {
+      return NULL;
+  }
+  p_queue* temp = *head;
+  p_queue* prev = NULL;
+  while (temp != NULL && temp->node == NULL) {
+    prev = temp;
+    temp = temp->succ;
+  }
+  if (temp == NULL) {
+    return NULL;
+  }
 
-    p_queue* temp = *head;
-    p_queue* prev = NULL;
+  node_t* node = temp->node;
 
-    while (temp != NULL && temp->node == NULL) {
-        prev = temp;
-        temp = temp->succ;
-    }
-
-    if (temp == NULL) {
-        return NULL;
-    }
-
-    node_t* node = temp->node;
-
-    if (prev == NULL) {
-        *head = temp->succ;
-    } else {
-        prev->succ = temp->succ;
-    }
-    free(temp);
-    return node;
+  if (prev == NULL) {
+      *head = temp->succ;
+  } else {
+    prev->succ = temp->succ;
+  }
+  free(temp);
+  return node;
 }
 
 
@@ -165,9 +164,9 @@ void pivot(simplex_t *s, int row, int col) {
   double *b = s->b;
   double *c = s->c;
 
-  double rec = 1 / a[row][col];
-  double crec = c[col] * rec;
-  double brec = b[row] * rec;
+  recip = 1 / a[row][col];
+  x_recip = c[col] * recip;
+
 
   int m = s->m;
   int n = s->n;
@@ -175,33 +174,38 @@ void pivot(simplex_t *s, int row, int col) {
   t = s->var[col];
   s->var[col] = s->var[n + row];
   s->var[n + row] = t;
-  s->y = s->y + b[row] * crec;
+  s->y = s->y + b[row] * x_recip;
 
+  temp = c[col];
   for (i = 0; i < n; i += 1) {
-    if (i != col) {
-      c[i]-= a[row][i] * crec;
-    }
+    c[i]-= a[row][i] * x_recip;
   }
+  c[col] = temp;
+  c[col] = -x_recip;
+  
+  x_recip = recip * b[row];
 
+  temp = b[row];
   for (i = 0; i < m; i += 1) {
+    b[i] -= a[i][col] * x_recip; 
     if (i != row) {
-      b[i] -= a[i][col] * brec; 
       for (j = 0; j < n; j += 1) {
         if (j != col) {
-          a[i][j] -= a[i][col] * a[row][j] * rec;
+          a[i][j] -= a[i][col] * a[row][j] * recip;
         }
       }
     }
   }
+  b[row] = temp;
   for (i = 0; i < m; i += 1) {
-    a[i][col] *= -rec;
+    a[i][col] *= -recip;
   }
   for (i = 0; i < n; i += 1) {
-    a[row][i] *= rec;
+    a[row][i] *= recip;
   }
-  c[col] = -crec;
-  b[row] = brec;
-  a[row][col] = rec;
+
+  b[row] = x_recip;
+  a[row][col] = recip;
 }
 
 void prepare(simplex_t *s, int k) {
@@ -238,7 +242,7 @@ double xsimplex(int m, int n, double **a, double *b, double *c, double *x,
     row = -1;
     for (i = 0; i < m; i += 1) {
       if (a[i][col] > EPSILON &&
-          (row < 0 || b[i] / a[i][col] < b[row] / a[row][col])) {
+          (row < 0 || b[i] * a[row][col] < b[row] * a[i][col])) {
         row = i;
       }
     }
@@ -362,15 +366,15 @@ double simplex(int m, int n, double **a, double *b, double *c, double *x,
 node_t *initial_node(int m, int n, double **a, double *b, double *c) {
   node_t *p = malloc(sizeof(node_t));
   int i, j;
-  p->a = malloc((m + 1) * sizeof(double *));
+  p->a =  (double**)malloc((m + 1) * sizeof(double *));
   for (i = 0; i < m + 1; i += 1) {
-    p->a[i] = malloc((n + 1) * sizeof(double));
+    p->a[i] =  (double*)malloc((n + 1) * sizeof(double));
   }
-  p->b = malloc((m + 1)* sizeof(double));
-  p->c = malloc((n + 1)* sizeof(double));
-  p->x = malloc((n + 1) *sizeof(double));
-  p->min = malloc(n * sizeof(double));
-  p->max = malloc(n * sizeof(double));
+  p->b = (double*)malloc((m + 1)* sizeof(double));
+  p->c = (double*) malloc((n + 1)* sizeof(double));
+  p->x = (double*)malloc((n + 1) *sizeof(double));
+  p->min = (double*)malloc(n * sizeof(double));
+  p->max = (double*)malloc(n * sizeof(double));
   p->m = m;
   p->n = n;
 
@@ -487,7 +491,7 @@ int branch(node_t *q, double z) {
   }
   double min, max;
   int h, i;
-  for (h = 0; h < q->n; h += 1) {
+  for(h = 0; h < q->n; h += 1) {
     if (!is_integer(&q->x[h])) {
       if (q->min[h] == -INFINITY) {
         min = 0;
@@ -507,6 +511,11 @@ int branch(node_t *q, double z) {
     }
   }
   return 0;
+}
+
+void update_p_cost(double* p_up, double* p_down, int k, double delta) {
+  p_up[k] = (1-ALPHA) * p_up[k] + ALPHA * delta;
+  p_down[k] = (1-ALPHA) * p_down[k] - ALPHA * delta;
 }
 
 void succ(node_t *p, p_queue **h, int m, int n, double **a, double *b, double *c,
@@ -529,7 +538,6 @@ void succ(node_t *p, p_queue **h, int m, int n, double **a, double *b, double *c
 
 double intopt(int m, int n, double **a, double *b, double *c, double *x) {
   node_t *p = initial_node(m, n, a, b, c);
-
   p_queue *h = new_set(p);
 
   double z = -INFINITY; 
