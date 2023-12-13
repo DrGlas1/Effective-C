@@ -35,7 +35,8 @@ struct p_queue {
   node_t *node;
 };
 
-double temp, recip, x_recip;
+bool initial(simplex_t *s, int m, int n, double** restrict a, double* restrict b, double* restrict c,
+            double* restrict x, double y, int* restrict var); 
 
 void free_node(node_t *node) {
   free(node->min);
@@ -117,11 +118,6 @@ node_t* pop(p_queue** head) {
   return node;
 }
 
-
-
-bool initial(simplex_t *s, int m, int n, double **a, double *b, double *c,
-            double *x, double y, int *var);
-
 int init(simplex_t *s, int m, int n, double **a, double *b, double *c,
          double *x, double y, int *var) {
   int i, k;
@@ -150,6 +146,7 @@ int init(simplex_t *s, int m, int n, double **a, double *b, double *c,
 
 int select_nonbasic(simplex_t *s) {
   int i, max;
+  double temp;
   temp = EPSILON;
   for (i = 0; i < s->n; i++) {
     if(s->c[i] > temp) {
@@ -163,6 +160,7 @@ void pivot(simplex_t *s, int row, int col) {
   double **a = s->a;
   double *b = s->b;
   double *c = s->c;
+  double recip, x_recip, temp;
 
   recip = 1 / a[row][col];
   x_recip = c[col] * recip;
@@ -229,8 +227,8 @@ void prepare(simplex_t *s, int k) {
   pivot(s, k, n - 1);
 }
 
-double xsimplex(int m, int n, double **a, double *b, double *c, double *x,
-                double y, int *var, int h) {
+double xsimplex(int m, int n, double** restrict a, double* restrict b, double* restrict c, double* restrict x,
+                double y, int* restrict var, int h) {
   simplex_t s;
   int i, row, col;
   if (!initial(&s, m, n, a, b, c, x, y, var)) {
@@ -276,8 +274,8 @@ double xsimplex(int m, int n, double **a, double *b, double *c, double *x,
   return s.y;
 }
 
-bool initial(simplex_t *s, int m, int n, double **a, double *b, double *c,
-            double *x, double y, int *var) {
+bool initial(simplex_t *s, int m, int n, double** restrict a, double* restrict b, double* restrict c,
+            double* restrict x, double y, int* restrict var) {
   int i, j, k;
   double w;
   k = init(s, m, n, a, b, c, x, y, var);
@@ -358,12 +356,12 @@ bool initial(simplex_t *s, int m, int n, double **a, double *b, double *c,
   return true;
 }
 
-double simplex(int m, int n, double **a, double *b, double *c, double *x,
+double simplex(int m, int n, double** restrict a, double* restrict b, double* restrict c, double* restrict x,
                double y) {
   return xsimplex(m, n, a, b, c, x, y, NULL, 0);
 }
 
-node_t *initial_node(int m, int n, double **a, double *b, double *c) {
+node_t *initial_node(int m, int n, double** restrict a, double* restrict b, double* restrict c) {
   node_t *p = malloc(sizeof(node_t));
   int i, j;
   p->a =  (double**)malloc((m + 1) * sizeof(double *));
@@ -395,7 +393,7 @@ node_t *initial_node(int m, int n, double **a, double *b, double *c) {
   return p;
 }
 
-node_t *extend(node_t *p, int m, int n, double **a, double *b, double *c, int k,
+node_t *extend(node_t *p, int m, int n, double** restrict a, double* restrict b, double* restrict c, int k,
                double ak, double bk) {
   node_t *q = malloc(sizeof(node_t));
   int i, j;
@@ -456,7 +454,7 @@ node_t *extend(node_t *p, int m, int n, double **a, double *b, double *c, int k,
   return q;
 }
 
-int is_integer(double *xp) {
+int is_integer(double* xp) {
   double x = *xp;
   double r = lround(x); 
   if (fabs(r - x) < EPSILON) {
@@ -477,7 +475,7 @@ int integer(node_t *p) {
   return 1;
 }
 
-void bound(node_t* p, double* zp, double* x) {
+void bound(node_t* p, double* restrict zp, double* restrict x) {
   if(p == NULL) return;
   if (p->z > *zp) {
     *zp = p->z;
@@ -489,7 +487,7 @@ int branch(node_t *q, double z) {
   if (q->z < z) {
     return 0;
   }
-  double min, max, recip = ALPHA;
+  double min, max, temp, recip = ALPHA;
   int i, b = 0; 
   for(i = 0; i < q->n; i++) {
     if (!is_integer(&q->x[i])) {
@@ -515,13 +513,8 @@ int branch(node_t *q, double z) {
   return b;
 }
 
-void update_p_cost(double* p_up, double* p_down, int k, double delta) {
-  p_up[k] = (1-ALPHA) * p_up[k] + ALPHA * delta;
-  p_down[k] = (1-ALPHA) * p_down[k] - ALPHA * delta;
-}
-
-void succ(node_t *p, p_queue **h, int m, int n, double **a, double *b, double *c,
-          int k, double ak, double bk, double *zp, double *x) {
+void succ(node_t *p, p_queue** h, int m, int n, double** restrict a, double* restrict b, double* restrict c,
+          int k, double ak, double bk, double* restrict zp, double* restrict x) {
   node_t *q = extend(p, m, n, a, b, c, k, ak, bk);
   if (q == NULL) {
     return;
@@ -538,7 +531,7 @@ void succ(node_t *p, p_queue **h, int m, int n, double **a, double *b, double *c
   free_node(q);
 }
 
-double intopt(int m, int n, double **a, double *b, double *c, double *x) {
+double intopt(int m, int n, double** restrict a, double* restrict b, double* restrict c, double* restrict x) {
   node_t *p = initial_node(m, n, a, b, c);
   p_queue *h = new_set(p);
 
@@ -588,45 +581,4 @@ double intopt(int m, int n, double **a, double *b, double *c, double *x) {
   }
 }
 
-int main() {
-  int i, j;
-  int m;
-  int n;
-  scanf("%d %d", &m, &n);
-  double *c;
-  double **a;
-  double *b;
 
-  c = (double*)malloc(n * sizeof(double));
-  a = (double**)malloc(m * sizeof(double *));
-  for (i = 0; i < m; i += 1) {
-    a[i] = (double*)malloc((n + 1) * sizeof(double));
-  }
-  b = (double*)malloc(m * sizeof(double));
-
-  for (i = 0; i < n; i += 1) {
-    scanf("%lf", &c[i]);
-  }
-
-  for (i = 0; i < m; i += 1) {
-    for (j = 0; j < n; j += 1) {
-      scanf("%lf", &a[i][j]);
-    }
-  }
-
-  for (i = 0; i < m; i += 1) {
-    scanf("%lf", &b[i]);
-  }
-
-  double *x = malloc(m * sizeof(double));
-  double res = intopt(m, n, a, b, c, x); // Call either intopt or simplex
-  printf("ANSWER IS: %lf \n", res);
-  free(x);
-  for (i = 0; i < m; i += 1) {
-    free(a[i]);
-  }
-  free(a);
-  free(b);
-  free(c);
-  return 0;
-}
