@@ -7,6 +7,7 @@
 
 #define ALPHA 0.6
 #define EPSILON 1e-6
+#define POOL_SIZE 60
 
 typedef struct simplex_t{
 	int m, n; 			
@@ -34,6 +35,8 @@ struct p_queue {
   p_queue *succ;
   node_t *node;
 };
+
+node_t* reuse_pool[POOL_SIZE] = {NULL};
 
 bool initial(simplex_t *s, int m, int n, double** restrict a, double* restrict b, double* restrict c,
             double* restrict x, double y, int* restrict var); 
@@ -83,7 +86,11 @@ void prune_nodes(p_queue** head, double z) {
       } else {
             prev->succ = temp->succ;
       }
-      free_node(temp->node);
+      if (reuse_pool[temp->node->m] == NULL) {
+        reuse_pool[temp->node->m] = temp->node;
+      } else {
+        free_node(temp->node);
+      }
       free(temp);
       temp = (prev == NULL) ? *head : prev->succ;
       } else {
@@ -375,7 +382,6 @@ node_t *initial_node(int m, int n, double** restrict a, double* restrict b, doub
   p->max = (double*)malloc(n * sizeof(double));
   p->m = m;
   p->n = n;
-
   for (i = 0; i < m; i += 1) {
     for (j = 0; j < n; j += 1) {
       p->a[i][j] = a[i][j];
@@ -393,7 +399,7 @@ node_t *initial_node(int m, int n, double** restrict a, double* restrict b, doub
   return p;
 }
 
-node_t *extend(node_t *p, int m, int n, double** restrict a, double* restrict b, double* restrict c, int k,
+node_t *extend(node_t *p, int m, int n, double** restrict a, double* restrict b, double* restrict c,int k,
                double ak, double bk) {
   node_t *q = malloc(sizeof(node_t));
   int i, j;
@@ -407,18 +413,28 @@ node_t *extend(node_t *p, int m, int n, double** restrict a, double* restrict b,
   } else {
     q->m = p->m + 1;
   }
-
   q->n = p->n;
   q->h = -1;
-  q->a = (double**)malloc((q->m + 1) * sizeof(double));
-  for (i = 0; i < q->m + 1; i += 1) {
-    q->a[i] = (double*)calloc((q->n + 1), sizeof(double));
+  if (reuse_pool[q->m] != NULL) {
+    printf("Hello\n");
+    node_t* reuse = reuse_pool[q->m];
+    q->a = reuse->a;
+    q->b = reuse->b;
+    q->c = reuse->c;
+    q->x = reuse->x;
+    q->min = reuse->min;
+    q->max = reuse->max;
+  } else {
+     q->a = (double**)malloc((q->m + 1) * sizeof(double));
+    for (i = 0; i < q->m + 1; i += 1) {
+      q->a[i] = (double*)calloc((q->n + 1), sizeof(double));
+    }
+    q->b =(double*) malloc((q->m + 1) * sizeof(double));
+    q->c = (double*)malloc((q->n + 1) * sizeof(double));
+    q->x = (double*)malloc((q->n + 1) * sizeof(double));
+    q->min = (double*)malloc(n * sizeof(double));
+    q->max = (double*)malloc(n * sizeof(double)); 
   }
-  q->b =(double*) malloc((q->m + 1) * sizeof(double));
-  q->c = (double*)malloc((q->n + 1) * sizeof(double));
-  q->x = (double*)malloc((q->n + 1) * sizeof(double));
-  q->min = (double*)malloc(n * sizeof(double));
-  q->max = (double*)malloc(n * sizeof(double));
   for (i = 0; i < p->n; i += 1) {
     q->min[i] = p->min[i];
     q->max[i] = p->max[i];
@@ -484,11 +500,8 @@ void bound(node_t* p, double* restrict zp, double* restrict x) {
 }
 
 int branch(node_t *q, double z) {
-  if (q->z < z) {
-    return 0;
-  }
   double min, max, temp, recip = ALPHA;
-  int i, b = 0; 
+  int i, b = 0;
   for(i = 0; i < q->n; i++) {
     if (!is_integer(&q->x[i])) {
       if (q->min[i] == -INFINITY) {
@@ -513,29 +526,41 @@ int branch(node_t *q, double z) {
   return b;
 }
 
+
 void succ(node_t *p, p_queue** h, int m, int n, double** restrict a, double* restrict b, double* restrict c,
-          int k, double ak, double bk, double* restrict zp, double* restrict x) {
-  node_t *q = extend(p, m, n, a, b, c, k, ak, bk);
-  if (q == NULL) {
-    return;
-  }
+          int k, double* restrict zp, double* restrict x) {
+  bool keep_q = false, keep_r = false;
+  node_t* q = extend(p, m, n, a, b, c, k, 1,floor(p->xh));
   q->z = simplex(q->m, q->n, q->a, q->b, q->c, q->x, 0);
+  node_t* r = extend(p, m, n, a, b, c, k, -1,-ceil(p->xh));
+  r->z = simplex(r->m, r->n, r->a, r->b, r->c, r->x, 0);
   if (isfinite(q->z)) {
     if (integer(q)) {
       bound(q, zp, x);
-    } else if (branch(q, *zp)) {
+    } else if ((q->z > *zp) && branch(q, *zp)) {
       add(h, q);
-      return;
+      keep_q = true;
     }
   }
-  free_node(q);
+  if (isfinite(r->z)) {
+    if (integer(r)) {
+      bound(r, zp, x);
+    } else if ((r->z > *zp) && branch(r, *zp)) {
+      add(h, r);
+      keep_r = true;
+    }
+  }
+  if (!keep_q)
+    free_node(q);
+  if (!keep_r) 
+    free_node(r);
 }
 
 double intopt(int m, int n, double** restrict a, double* restrict b, double* restrict c, double* restrict x) {
   node_t *p = initial_node(m, n, a, b, c);
   p_queue *h = new_set(p);
 
-  double z = -INFINITY; 
+  double z = -INFINITY;
   p->z = simplex(p->m, p->n, p->a, p->b, p->c, p->x, 0);
   if (integer(p) || !isfinite(p->z)) {
     z = p->z;
@@ -559,8 +584,7 @@ double intopt(int m, int n, double** restrict a, double* restrict b, double* res
   while (h != NULL) {
     p = pop(&h);
     prev_max = z;
-    succ(p, &h, m, n, a, b, c, p->h, 1, floor(p->xh), &z, x);
-    succ(p, &h, m, n, a, b, c, p->h, -1, -ceil(p->xh), &z, x);
+    succ(p, &h, m, n, a, b, c, p->h, &z, x);
     if (prev_max < z) prune_nodes(&h, z);
     free_node(p);
   }
@@ -573,6 +597,10 @@ double intopt(int m, int n, double** restrict a, double* restrict b, double* res
     free(h);
     h = temp;
   }
+  
+  for(int i = 0; i < POOL_SIZE; i++) {
+    if (reuse_pool[i] != NULL) free_node(reuse_pool[i]);
+  }
 
   if (z == -INFINITY) {
     return NAN;
@@ -581,4 +609,45 @@ double intopt(int m, int n, double** restrict a, double* restrict b, double* res
   }
 }
 
+int main() {
+  int i, j;
+  int m;
+  int n;
+  scanf("%d %d", &m, &n);
+  double *c;
+  double **a;
+  double *b;
 
+  c = malloc(n * sizeof(double));
+  a = malloc(m * sizeof(double *));
+  for (i = 0; i < m; i += 1) {
+    a[i] = malloc((n + 1) * sizeof(double));
+  }
+  b = malloc(m * sizeof(double));
+
+  for (i = 0; i < n; i += 1) {
+    scanf("%lf", &c[i]);
+  }
+
+  for (i = 0; i < m; i += 1) {
+    for (j = 0; j < n; j += 1) {
+      scanf("%lf", &a[i][j]);
+    }
+  }
+
+  for (i = 0; i < m; i += 1) {
+    scanf("%lf", &b[i]);
+  }
+
+  double *x = malloc(m * sizeof(double));
+  double res = intopt(m, n, a, b, c, x); // Call either intopt or simplex
+  printf("ANSWER IS: %lf \n", res);
+  free(x);
+  for (i = 0; i < m; i += 1) {
+    free(a[i]);
+  }
+  free(a);
+  free(b);
+  free(c);
+  return 0;
+}
