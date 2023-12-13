@@ -1,13 +1,43 @@
-#include <stddef.h>
+#include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 
 typedef struct poly_t {
 	unsigned char size;
 	int* exp;
 	int val[];
 } poly_t;
+
+
+void swap(int* a, int* b) {  
+	int t = *a;  
+	*a = *b;  
+	*b = t;  
+}  
+
+int partition(int arr[], int comp[], int low, int high) {  
+    int pivot = arr[high];  
+    int i = (low - 1);  
+  
+	for (int j = low; j <= high - 1; j++) {  
+		if (arr[j] > pivot) {  
+			i++;  
+			swap(&arr[i], &arr[j]);
+			swap(&comp[i], &comp[j]);
+		}  
+	}  
+	swap(&arr[i + 1], &arr[high]);  
+	return (i + 1);  
+}  
+
+void quicksort(int arr[], int comp[], int low, int high) {  
+	if (low < high) {  
+		int pi = partition(arr, comp, low, high);  
+		quicksort(arr, comp, low, pi - 1);  
+		quicksort(arr, comp, pi + 1, high);  
+	}  
+}
 
 char is_digit(char c) {
 	return '0' <= c && c <= '9';
@@ -21,8 +51,8 @@ poly_t* new_poly_from_string(const char* var) {
 	for(i = 0; i < len; i++) {
 		if (var[i] == 'x') size++;
 	}
-	poly_t* poly = (poly_t*)malloc(sizeof(poly_t) + size * sizeof(int));
-	poly->exp = (int*)malloc(sizeof(int));
+	poly_t* poly = (poly_t*)calloc(1,sizeof(poly_t) + size * sizeof(int));
+	poly->exp = (int*)calloc(1,sizeof(int));
 	poly->size = size;
 	poly->val[0] = 1;
 	size = 0;
@@ -65,38 +95,40 @@ poly_t* mul(poly_t* poly1, poly_t* poly2) {
 	unsigned char size = poly1->size * poly2->size;
 	poly_t* res = (poly_t*)calloc(1,sizeof(poly_t) + size * sizeof(int));
 	res->exp = (int*)calloc(1,sizeof(int));
-	res->size = size;
 	unsigned char k = 0;
 	int prev_exp = -1, exp;
 	for(unsigned char i = 0; i < poly1->size; i++) {
 		for(unsigned char j = 0; j < poly2->size; j++) {
 			exp = poly1->exp[i] + poly2->exp[j]; 
-			if (prev_exp == exp) k--;
-			res->exp[k] += (prev_exp = exp);
-			res->val[k] += poly1->val[i] * poly2->val[j];
+			if (prev_exp == exp) {
+				k--;
+				res->val[k] += poly1->val[i] * poly2->val[j];
+			} else {
+				res->exp[k] = (prev_exp = exp);
+				res->val[k] = poly1->val[i] * poly2->val[j];	
+			}		
 			k++;
 		}
 	}
-	res->size = k - 1;
+	quicksort(res->exp, res->val, 0, k-1);
+	res->size = k;
 	return res;
 }
 
-//TODO - rewrite
+
 void print_poly(poly_t* poly) {
-	if (poly->val[0] != 1) printf("%d ", poly->val[0]);
-	if (poly->exp[0] == 1) printf("x ");
-	if (poly->exp[0] > 1) printf("x^%d ",poly->exp[0]);
-	for(int i = 1; i < poly->size; i++) {
-		if (poly->val[i] < 0) {
-			printf("- %d ", -poly->val[i]);
-		} else {
-			printf("+ %d ", poly->val[i]);
-		}
-		if (poly->exp[i] > 1) 
-			printf("x^%d ", poly->exp[i]);
-		else if (poly->exp[i] == 1)
-			printf("x ");
-		else break;
-	}
-	printf("\n");
+    for (int i = 0; i < poly->size; i++) {
+        if (poly->val[i] == 0)continue;
+        if (poly->val[i] < 0 || i > 0) printf("%s", (poly->val[i] < 0) ? "- " : "+ ");
+	if (abs(poly->val[i]) != 1 || poly->exp[i] == 0) printf("%d", abs(poly->val[i]));
+        if (poly->exp[i] > 0) {
+            printf("x");
+            if (poly->exp[i] > 1) {
+                printf("^%d", poly->exp[i]);
+            }
+        }
+        if (i != poly->size - 1) printf(" ");
+    }
+    printf("\n");
 }
+
