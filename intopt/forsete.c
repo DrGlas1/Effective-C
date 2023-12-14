@@ -416,7 +416,6 @@ node_t *extend(node_t *p, int m, int n, double** restrict a, double* restrict b,
   q->n = p->n;
   q->h = -1;
   if (reuse_pool[q->m] != NULL) {
-    printf("Hello\n");
     node_t* reuse = reuse_pool[q->m];
     q->a = reuse->a;
     q->b = reuse->b;
