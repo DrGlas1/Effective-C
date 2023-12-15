@@ -4,9 +4,9 @@
 #include <string.h>
 
 typedef struct poly_t {
-	unsigned char size;
+	int size;
 	int* exp;
-	int val[];
+	int* val;
 } poly_t;
 
 
@@ -46,13 +46,14 @@ char is_digit(char c) {
 poly_t* new_poly_from_string(const char* var) {
 	int len = strlen(var), exp = 0, val;
 	char negative = 0;
-	unsigned char i;
-	unsigned char size = 1;
+	int i;
+	int size = 1;
 	for(i = 0; i < len; i++) {
 		if (var[i] == 'x') size++;
 	}
 	poly_t* poly = (poly_t*)calloc(1,sizeof(poly_t) + size * sizeof(int));
-	poly->exp = (int*)calloc(1,sizeof(int));
+	poly->exp = (int*)calloc(size,sizeof(int));
+	poly->val = (int*)calloc(size, sizeof(int));
 	poly->size = size;
 	poly->val[0] = 1;
 	size = 0;
@@ -63,14 +64,14 @@ poly_t* new_poly_from_string(const char* var) {
 			val = var[i++] - '0';
 			while(i < len && is_digit(var[i])) {
 				val *= 10;
-				val += var[i] - '0';
+				val += var[i++] - '0';
 			}
 			if(negative) {
 				poly->val[size] = -val;
 				negative = 0;
 			} else	poly->val[size] = val;
 		}
-		if (var[i] == 'x') {
+		if (i < len && var[i] == 'x') {
 			i++;
 			if (var[i] == '^') i++;
 			while(i < len && is_digit(var[i])) {
@@ -88,17 +89,19 @@ poly_t* new_poly_from_string(const char* var) {
 
 void free_poly(poly_t* poly) {
 	free(poly->exp);
+	free(poly->val);
 	free(poly);
 }
 
 poly_t* mul(poly_t* poly1, poly_t* poly2) {
-	unsigned char size = poly1->size * poly2->size;
-	poly_t* res = (poly_t*)calloc(1,sizeof(poly_t) + size * sizeof(int));
-	res->exp = (int*)calloc(1,sizeof(int));
+	int size = poly1->size * poly2->size;
+	poly_t* res = (poly_t*)calloc(1,sizeof(poly_t));
+	res->exp = (int*)calloc(size,sizeof(int));
+	res->val = (int*)calloc(size,sizeof(int));
 	unsigned char k = 0;
 	int prev_exp = -1, exp;
-	for(unsigned char i = 0; i < poly1->size; i++) {
-		for(unsigned char j = 0; j < poly2->size; j++) {
+	for(int i = 0; i < poly1->size; i++) {
+		for(int j = 0; j < poly2->size; j++) {
 			exp = poly1->exp[i] + poly2->exp[j]; 
 			if (prev_exp == exp) {
 				k--;
@@ -110,7 +113,7 @@ poly_t* mul(poly_t* poly1, poly_t* poly2) {
 			k++;
 		}
 	}
-	quicksort(res->exp, res->val, 0, k-1);
+	quicksort(res->exp, res->val, 0, k-2);
 	res->size = k;
 	return res;
 }
