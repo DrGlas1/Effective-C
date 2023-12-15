@@ -26,7 +26,8 @@ int add(list** head, const char* word) {
 	if (*head == NULL) {
 		*head = (list*)malloc(sizeof(list));
 	        (*head)->next = NULL;
-		(*head)->word = strdup(word);
+		(*head)->word = (char*)malloc(strlen(word) + 1);
+		strcpy((*head)->word, word);
 		(*head)->count = 1;
 		return 1;
 	}
@@ -47,7 +48,8 @@ int add(list** head, const char* word) {
 	current->next = (list*)malloc(sizeof(list));
 	current = current->next;
 	current->next = NULL;
-	current->word = strdup(word);
+	current->word = (char*)malloc(strlen(word) + 1);
+	strcpy(current->word, word);
 	current->count = 1;
 	return 1;
 }
@@ -64,6 +66,7 @@ int delete(list** head, const char* word) {
 			} else {
 				*head = current->next;
 			}
+			free(current->word);
 			free(current);
 			return 1;
 		}
@@ -88,13 +91,15 @@ void print_most_common(list* head) {
 
 void free_list(list* head) {
 	if (head == NULL) return;
-	list* curr;
+	list* current;
 	list* next = head->next;
+	free(head->word);
 	free(head);
 	while(next != NULL) {
-		curr = next;
+		current = next;
 		next = next->next;
-		free(curr);
+		free(current->word);
+		free(current);
 	}
 }
 
