@@ -78,11 +78,11 @@ int delete(list** head, const char* word) {
 
 void print_most_common(list* head) {
 	int count = 0;
-	char* word;
+	char word[BUF_SIZE];
 	while(head != NULL) {
 		if (head->count > count) {
 			count = head->count;
-			word = head->word;
+			strcpy(word, head->word);
 		}
 		head = head->next;
 	}
