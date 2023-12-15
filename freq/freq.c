@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define BUF_SIZE 1024
+#define BUF_SIZE 256
 
 typedef struct list list;
 struct list{
@@ -104,10 +104,10 @@ void free_list(list* head) {
 }
 
 int main() {
-	int line = 1;
 	char buffer[BUF_SIZE];
+	int line = 1;
 	list* words = NULL;
-	while(fgets(buffer, BUF_SIZE, stdin) != NULL) {
+	while(fscanf(stdin, "%s", buffer) != EOF) {
 		buffer[strcspn(buffer, "\n")] = '\0';
 		if(isprime(line)) {
 			printf("trying to delete %s: ", buffer);
